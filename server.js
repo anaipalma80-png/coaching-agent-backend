@@ -1,12 +1,8 @@
-// server.js (ES Module)
+// server.js (ES Module - simplified)
 import 'dotenv/config.js';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import logger from './src/utils/logger.js';
-import agentsRouter from './src/routes/agents.js';
-import conversationsRouter from './src/routes/conversations.js';
-import healthRouter from './src/routes/health.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -20,28 +16,32 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Logging middleware
-app.use((req, res, next) => {
-  logger.info({ method: req.method, path: req.path });
-  next();
+// Health check
+app.get('/api/health', (req, res) => {
+  res.json({ success: true, status: 'healthy', timestamp: new Date() });
 });
 
-// Routes
-app.use('/api/health', healthRouter);
-app.use('/api/agents', agentsRouter);
-app.use('/api/conversations', conversationsRouter);
+// Placeholder routes
+app.get('/api/agents', (req, res) => {
+  res.json({ success: true, data: [], message: 'Agents endpoint' });
+});
+
+app.post('/api/agents', (req, res) => {
+  res.json({ success: true, data: { id: '1', name: 'New Agent' }, message: 'Agent created' });
+});
+
+app.get('/api/conversations', (req, res) => {
+  res.json({ success: true, data: [], message: 'Conversations endpoint' });
+});
 
 // 404 handler
 app.use((req, res) => {
-  res.status(404).json({ 
-    success: false, 
-    error: 'Route not found' 
-  });
+  res.status(404).json({ success: false, error: 'Route not found' });
 });
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  logger.error(err);
+  console.error(err);
   res.status(err.status || 500).json({ 
     success: false, 
     error: err.message || 'Internal server error' 
@@ -50,23 +50,15 @@ app.use((err, req, res, next) => {
 
 // Start server
 const server = app.listen(PORT, () => {
-  logger.info(`Server running on port ${PORT}`);
-  logger.info(`Environment: ${process.env.NODE_ENV}`);
+  console.log(`Server running on port ${PORT}`);
+  console.log(`Environment: ${process.env.NODE_ENV}`);
 });
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
-  logger.info('SIGTERM signal received: closing HTTP server');
+  console.log('SIGTERM received');
   server.close(() => {
-    logger.info('HTTP server closed');
-    process.exit(0);
-  });
-});
-
-process.on('SIGINT', () => {
-  logger.info('SIGINT signal received: closing HTTP server');
-  server.close(() => {
-    logger.info('HTTP server closed');
+    console.log('Server closed');
     process.exit(0);
   });
 });
