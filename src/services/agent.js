@@ -9,27 +9,19 @@ const logger = require('../utils/logger');
 class AgentService {
   /**
    * Create a new coaching agent
-   * @param {Object} agentData - Agent configuration
-   * @param {string} companyId - Company ID
-   * @returns {Promise<Object>} Created agent
    */
   async createAgent(agentData, companyId) {
     try {
-      logger.info(
-        { agentName: agentData.name, companyId },
-        'Creating new coaching agent'
-      );
+      logger.info({ agentName: agentData.name, companyId }, 'Creating new coaching agent');
 
-      // Validate required fields
       if (!agentData.name) {
         throw new Error('Agent name is required');
       }
 
       if (!agentData.type) {
-        agentData.type = 'coaching'; // default type
+        agentData.type = 'coaching';
       }
 
-      // Create agent in Retell first
       const retellAgent = await retellService.createAgent({
         name: agentData.name,
         type: agentData.type,
@@ -43,7 +35,6 @@ class AgentService {
         throw new Error('Failed to create agent in Retell');
       }
 
-      // Store agent metadata in Base44
       const agentRecord = await base44Service.create('Agent', {
         name: agentData.name,
         type: agentData.type,
@@ -65,19 +56,13 @@ class AgentService {
 
       return agentRecord;
     } catch (error) {
-      logger.error(
-        { agentName: agentData.name, error: error.message },
-        'Failed to create agent'
-      );
+      logger.error({ agentName: agentData.name, error: error.message }, 'Failed to create agent');
       throw error;
     }
   }
 
   /**
    * Get agent by ID
-   * @param {string} agentId - Agent ID
-   * @param {string} companyId - Company ID (for verification)
-   * @returns {Promise<Object>} Agent details
    */
   async getAgent(agentId, companyId) {
     try {
@@ -102,8 +87,6 @@ class AgentService {
 
   /**
    * Get all agents for a company
-   * @param {string} companyId - Company ID
-   * @returns {Promise<Array>} Array of agents
    */
   async getAgentsByCompany(companyId) {
     try {
@@ -111,33 +94,22 @@ class AgentService {
 
       const agents = await base44Service.query('Agent', 'company_id', companyId);
 
-      logger.info(
-        { companyId, count: agents.length },
-        'Agents retrieved'
-      );
+      logger.info({ companyId, count: agents.length }, 'Agents retrieved');
 
       return agents;
     } catch (error) {
-      logger.error(
-        { companyId, error: error.message },
-        'Failed to get agents'
-      );
+      logger.error({ companyId, error: error.message }, 'Failed to get agents');
       throw error;
     }
   }
 
   /**
    * Update an agent
-   * @param {string} agentId - Agent ID
-   * @param {Object} updateData - Data to update
-   * @param {string} companyId - Company ID (for verification)
-   * @returns {Promise<Object>} Updated agent
    */
   async updateAgent(agentId, updateData, companyId) {
     try {
       const agent = await this.getAgent(agentId, companyId);
 
-      // If name or config changed, update in Retell
       if (updateData.name || updateData.config) {
         const retellUpdate = {};
 
@@ -150,65 +122,46 @@ class AgentService {
         }
 
         if (Object.keys(retellUpdate).length > 0) {
-          await retellService.updateAgent(
-            agent.retell_agent_id,
-            retellUpdate
-          );
+          await retellService.updateAgent(agent.retell_agent_id, retellUpdate);
         }
       }
 
-      // Update in Base44
       const updated = await base44Service.update('Agent', agentId, updateData);
 
       logger.info({ agentId }, 'Agent updated successfully');
 
       return updated;
     } catch (error) {
-      logger.error(
-        { agentId, error: error.message },
-        'Failed to update agent'
-      );
+      logger.error({ agentId, error: error.message }, 'Failed to update agent');
       throw error;
     }
   }
 
   /**
    * Delete an agent
-   * @param {string} agentId - Agent ID
-   * @param {string} companyId - Company ID (for verification)
-   * @returns {Promise<boolean>} Success status
    */
   async deleteAgent(agentId, companyId) {
     try {
       const agent = await this.getAgent(agentId, companyId);
 
-      // Delete from Retell
       await retellService.deleteAgent(agent.retell_agent_id);
 
-      // Delete from Base44
       await base44Service.delete('Agent', agentId);
 
       logger.info({ agentId }, 'Agent deleted successfully');
 
       return true;
     } catch (error) {
-      logger.error(
-        { agentId, error: error.message },
-        'Failed to delete agent'
-      );
+      logger.error({ agentId, error: error.message }, 'Failed to delete agent');
       throw error;
     }
   }
 
-  /**
-   * Get default prompt for agent type
-   * @private
-   */
   getDefaultPrompt(agentType) {
     const prompts = {
-      coaching: `You are a professional sales coach. Help the user improve their sales skills through constructive feedback and practical tips. Ask clarifying questions to understand their situation better.`,
-      skills: `You are a sales skills trainer. Help the user develop specific sales techniques and best practices. Provide examples and role-play scenarios when appropriate.`,
-      knowledge: `You are a knowledgeable sales assistant. Help the user find information about products, services, and sales strategies. Be clear and concise in your explanations.`,
+      coaching: `You are a professional sales coach. Help the user improve their sales skills through constructive feedback and practical tips.`,
+      skills: `You are a sales skills trainer. Help the user develop specific sales techniques and best practices.`,
+      knowledge: `You are a knowledgeable sales assistant. Help the user find information about products, services, and sales strategies.`,
     };
 
     return prompts[agentType] || prompts.coaching;
@@ -216,10 +169,6 @@ class AgentService {
 
   /**
    * Start a conversation with an agent
-   * @param {string} agentId - Agent ID
-   * @param {string} companyId - Company ID
-   * @param {Object} conversationConfig - Conversation configuration
-   * @returns {Promise<Object>} Conversation details
    */
   async startConversation(agentId, companyId, conversationConfig = {}) {
     try {
@@ -227,7 +176,6 @@ class AgentService {
 
       const conversationId = uuidv4();
 
-      // Create conversation record
       const conversation = await base44Service.create('Conversation', {
         agent_id: agentId,
         company_id: companyId,
@@ -238,77 +186,51 @@ class AgentService {
         metadata: conversationConfig.metadata || {},
       });
 
-      logger.info(
-        { agentId, conversationId },
-        'Conversation started'
-      );
+      logger.info({ agentId, conversationId }, 'Conversation started');
 
       return conversation;
     } catch (error) {
-      logger.error(
-        { agentId, error: error.message },
-        'Failed to start conversation'
-      );
+      logger.error({ agentId, error: error.message }, 'Failed to start conversation');
       throw error;
     }
   }
 
   /**
    * Update conversation with transcript
-   * @param {string} conversationId - Conversation ID
-   * @param {Array} transcript - Conversation messages
-   * @returns {Promise<Object>} Updated conversation
    */
   async updateConversationTranscript(conversationId, transcript) {
     try {
-      const updated = await base44Service.update(
-        'Conversation',
-        conversationId,
-        {
-          transcript,
-          updated_at: new Date().toISOString(),
-        }
-      );
+      const updated = await base44Service.update('Conversation', conversationId, {
+        transcript,
+        updated_at: new Date().toISOString(),
+      });
 
       return updated;
     } catch (error) {
-      logger.error(
-        { conversationId, error: error.message },
-        'Failed to update conversation transcript'
-      );
+      logger.error({ conversationId, error: error.message }, 'Failed to update transcript');
       throw error;
     }
   }
 
   /**
    * End a conversation
-   * @param {string} conversationId - Conversation ID
-   * @param {Object} endData - End data (sentiment, insights, etc.)
-   * @returns {Promise<Object>} Ended conversation
    */
   async endConversation(conversationId, endData = {}) {
     try {
-      const updated = await base44Service.update(
-        'Conversation',
-        conversationId,
-        {
-          status: 'ended',
-          end_time: new Date().toISOString(),
-          sentiment: endData.sentiment,
-          insights: endData.insights || null,
-          metrics: endData.metrics || null,
-          updated_at: new Date().toISOString(),
-        }
-      );
+      const updated = await base44Service.update('Conversation', conversationId, {
+        status: 'ended',
+        end_time: new Date().toISOString(),
+        sentiment: endData.sentiment,
+        insights: endData.insights || null,
+        metrics: endData.metrics || null,
+        updated_at: new Date().toISOString(),
+      });
 
       logger.info({ conversationId }, 'Conversation ended');
 
       return updated;
     } catch (error) {
-      logger.error(
-        { conversationId, error: error.message },
-        'Failed to end conversation'
-      );
+      logger.error({ conversationId, error: error.message }, 'Failed to end conversation');
       throw error;
     }
   }

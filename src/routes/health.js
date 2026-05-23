@@ -38,8 +38,6 @@ router.get('/', (req, res) => {
  */
 router.get('/ready', (req, res) => {
   try {
-    // Add service readiness checks here
-    // For now, just check basic connectivity
     res.status(200).json({
       success: true,
       data: {
