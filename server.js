@@ -1,39 +1,57 @@
-// server.js
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const helmet = require('helmet');
-const logger = require('./src/utils/logger');
+// server.js (ES Module)
+import 'dotenv/config.js';
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import logger from './src/utils/logger.js';
+import agentsRouter from './src/routes/agents.js';
+import conversationsRouter from './src/routes/conversations.js';
+import healthRouter from './src/routes/health.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(helmet());
-app.use(cors());
+app.use(cors({
+  origin: process.env.CORS_ORIGIN || ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:5173'],
+  credentials: true
+}));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// Health check
-app.get('/api/health', (req, res) => {
-  res.json({ success: true, status: 'healthy' });
+// Logging middleware
+app.use((req, res, next) => {
+  logger.info({ method: req.method, path: req.path });
+  next();
 });
 
-// Routes (placeholder)
-app.use('/api/agents', require('./src/routes/agents'));
-app.use('/api/conversations', require('./src/routes/conversations'));
+// Routes
+app.use('/api/health', healthRouter);
+app.use('/api/agents', agentsRouter);
+app.use('/api/conversations', conversationsRouter);
 
-// Error handling
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({ 
+    success: false, 
+    error: 'Route not found' 
+  });
+});
+
+// Error handling middleware
 app.use((err, req, res, next) => {
   logger.error(err);
-  res.status(500).json({ 
+  res.status(err.status || 500).json({ 
     success: false, 
-    error: 'Internal server error' 
+    error: err.message || 'Internal server error' 
   });
 });
 
 // Start server
 const server = app.listen(PORT, () => {
   logger.info(`Server running on port ${PORT}`);
+  logger.info(`Environment: ${process.env.NODE_ENV}`);
 });
 
 // Graceful shutdown
@@ -44,3 +62,13 @@ process.on('SIGTERM', () => {
     process.exit(0);
   });
 });
+
+process.on('SIGINT', () => {
+  logger.info('SIGINT signal received: closing HTTP server');
+  server.close(() => {
+    logger.info('HTTP server closed');
+    process.exit(0);
+  });
+});
+
+export default app;
